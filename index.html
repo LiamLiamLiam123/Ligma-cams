@@ -44,7 +44,8 @@ button { background:#060; color:#000; border:none; padding:8px 12px; border-radi
 </div>
 
 <script>
-const CAMS_JSON = "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/main/cams.json";
+const CAMS_JSON = "https://api.allorigins.win/raw?url=" +
+                  encodeURIComponent("https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/main/cams.json");
 
 const grid = document.getElementById("grid");
 const empty = document.getElementById("empty");
@@ -56,12 +57,12 @@ const fsTitle = document.getElementById("fs-title");
 let cameras = [];
 let fsCam = null;
 
-// Load cameras from GitHub JSON
+// Load cameras from GitHub JSON via free proxy
 async function loadCameras() {
   try {
     const res = await fetch(CAMS_JSON);
     const data = await res.json();
-    // Map from features -> properties.href / title
+    // Map the features to the format we need
     cameras = data.features.map(f => ({
       location: f.properties.title + " - " + f.properties.view,
       url: f.properties.href
