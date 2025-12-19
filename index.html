@@ -4,25 +4,20 @@
 <meta charset="UTF-8">
 <title>ligma-cams</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
 body { margin:0; background:#0f0; color:#000; font-family:Arial,sans-serif }
 header { padding:10px; background:#090; display:flex; flex-direction:column; gap:8px }
 h1 { margin:0; text-align:center }
 #search { padding:10px; font-size:16px; border-radius:6px; border:none }
-
 #grid { padding:8px; display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px }
 .cam { background:#0c0; border-radius:8px; overflow:hidden; cursor:pointer }
 .cam img { width:100%; display:block }
 .cam div { padding:6px; font-size:14px; text-align:center }
 #empty { text-align:center; opacity:.6; margin-top:20px; display:none }
-
 #fullscreen { position:fixed; inset:0; background:#0a0; display:none; flex-direction:column; z-index:9999 }
 #fullscreen header { display:flex; justify-content:space-between; align-items:center; background:#070; padding:8px }
 #fullscreen img { width:100%; height:100%; object-fit:contain; flex:1 }
-
 button { background:#060; color:#000; border:none; padding:8px 12px; border-radius:6px; font-size:16px }
-
 @media (min-width:768px) {
   header { flex-direction:row; align-items:center }
   h1 { flex:1; text-align:left }
@@ -30,18 +25,16 @@ button { background:#060; color:#000; border:none; padding:8px 12px; border-radi
 }
 </style>
 </head>
-
 <body>
 
 <header>
   <h1>🚦 ligma-cams</h1>
-  <input id="search" placeholder="Search by region or road name">
+  <input id="search" placeholder="Search by location">
 </header>
 
 <div id="grid"></div>
 <div id="empty">No cameras found</div>
 
-<!-- Fullscreen Camera -->
 <div id="fullscreen">
   <header>
     <div id="fs-title"></div>
@@ -51,6 +44,8 @@ button { background:#060; color:#000; border:none; padding:8px 12px; border-radi
 </div>
 
 <script>
+const DATA_URL = "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/refs/heads/main/cams.json";
+
 const grid = document.getElementById("grid");
 const empty = document.getElementById("empty");
 const search = document.getElementById("search");
@@ -61,19 +56,19 @@ const fsTitle = document.getElementById("fs-title");
 let cameras = [];
 let fsCam = null;
 
-// Use AllOrigins proxy for HTTPS + CORS
-const DATA_URL = "https://api.allorigins.win/raw?url=" +
-  encodeURIComponent("http://data.livetraffic.com/cameras/traffic-cam.json");
-
+// Fetch JSON from GitHub
 async function loadCameras() {
   try {
     const res = await fetch(DATA_URL);
     const data = await res.json();
-    cameras = data.features || [];
+    cameras = data.features || []; // assuming your JSON uses GeoJSON structure
     render();
-  } catch (err) { console.error("Camera load failed", err); }
+  } catch(err) {
+    console.error("Failed to load cameras", err);
+  }
 }
 
+// Render grid
 function render() {
   const q = search.value.trim().toLowerCase();
   grid.innerHTML = "";
@@ -85,15 +80,16 @@ function render() {
   empty.style.display = filtered.length ? "none" : "block";
 
   filtered.forEach(cam => {
-    const img = cam.properties.latest_jpg + "?_=" + Date.now();
+    const imgUrl = cam.properties.latest_jpg + "?_=" + Date.now();
     const card = document.createElement("div");
     card.className = "cam";
-    card.innerHTML = `<img src="${img}"><div>${cam.properties.location}</div>`;
+    card.innerHTML = `<img src="${imgUrl}"><div>${cam.properties.location}</div>`;
     card.onclick = () => openFullscreen(cam);
     grid.appendChild(card);
   });
 }
 
+// Fullscreen
 function openFullscreen(cam) {
   fsCam = cam;
   fs.style.display = "flex";
@@ -112,14 +108,14 @@ function updateFullscreenImage() {
 
 // Search input
 search.addEventListener("input", render);
-  
-// Refresh camera list every 60 seconds
-setInterval(loadCameras, 60*1000);
 
-// Refresh fullscreen camera every 15 seconds
-setInterval(() => { if(fsCam) updateFullscreenImage(); }, 15*1000);
+// Refresh cameras JSON every 15 seconds
+setInterval(loadCameras, 15000);
 
-// Initial load → cameras visible immediately
+// Refresh fullscreen image every 15 seconds
+setInterval(() => { if(fsCam) updateFullscreenImage(); }, 15000);
+
+// Initial load
 loadCameras();
 </script>
 
