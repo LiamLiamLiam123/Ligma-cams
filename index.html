@@ -44,7 +44,8 @@ button { background:#060; color:#000; border:none; padding:8px 12px; border-radi
 </div>
 
 <script>
-const BACKEND_URL = "https://ligma-cams-backend.vercel.app"; // replace with your actual Vercel backend
+// Replace this URL with a **public copy of LiveTraffic JSON** you host on GitHub
+const CAMS_JSON = "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/refs/heads/main/cams.json";
 
 const grid = document.getElementById("grid");
 const empty = document.getElementById("empty");
@@ -56,31 +57,20 @@ const fsTitle = document.getElementById("fs-title");
 let cameras = [];
 let fsCam = null;
 
-// Load NSW + Victoria cameras
+// Load cameras from hosted JSON
 async function loadCameras() {
   try {
-    // NSW cameras
-    const nswRes = await fetch(BACKEND_URL + "/nsw-cameras.json");
-    const nswData = await nswRes.json();
-    const nswCams = nswData.features.filter(c => {
-      const loc = c.properties.location.toLowerCase();
-      return loc.includes("shellharbour") || loc.includes("warilla") || loc.includes("princes hwy");
-    });
-
-    // Victoria / Melbourne cameras
-    const vicRes = await fetch(BACKEND_URL + "/vic-cameras.json");
-    const vicData = await vicRes.json();
-    const vicCams = vicData.features.map(c => ({
-      properties: {
-        location: c.properties.name,
-        latest_jpg: c.properties.url
-      }
+    const res = await fetch(CAMS_JSON);
+    const data = await res.json();
+    cameras = data.features.map(f => ({
+      location: f.properties.location,
+      url: f.properties.latest_jpg
     }));
-
-    cameras = [...nswCams, ...vicCams];
     render();
   } catch (e) {
     console.error("Failed to load cameras:", e);
+    empty.textContent = "Failed to load cameras";
+    empty.style.display = "block";
   }
 }
 
@@ -89,17 +79,13 @@ function render() {
   const q = search.value.trim().toLowerCase();
   grid.innerHTML = "";
 
-  const filtered = cameras.filter(c =>
-    c.properties.location.toLowerCase().includes(q)
-  );
-
+  const filtered = cameras.filter(c => c.location.toLowerCase().includes(q));
   empty.style.display = filtered.length ? "none" : "block";
 
   filtered.forEach(cam => {
-    const imgUrl = BACKEND_URL + "/image?url=" + encodeURIComponent(cam.properties.latest_jpg) + "&_=" + Date.now();
     const card = document.createElement("div");
     card.className = "cam";
-    card.innerHTML = `<img src="${imgUrl}"><div>${cam.properties.location}</div>`;
+    card.innerHTML = `<img src="${cam.url}?_=${Date.now()}"><div>${cam.location}</div>`;
     card.onclick = () => openFullscreen(cam);
     grid.appendChild(card);
   });
@@ -109,7 +95,7 @@ function render() {
 function openFullscreen(cam) {
   fsCam = cam;
   fs.style.display = "flex";
-  fsTitle.textContent = cam.properties.location;
+  fsTitle.textContent = cam.location;
   updateFullscreenImage();
 }
 
@@ -119,7 +105,7 @@ function closeFullscreen() {
 }
 
 function updateFullscreenImage() {
-  if (fsCam) fsImg.src = BACKEND_URL + "/image?url=" + encodeURIComponent(fsCam.properties.latest_jpg) + "&_=" + Date.now();
+  if (fsCam) fsImg.src = fsCam.url + "?_=" + Date.now();
 }
 
 // Search input
