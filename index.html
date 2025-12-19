@@ -5,23 +5,23 @@
 <title>ligma-cams</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body { margin:0; background:#0f0; color:#000; font-family:Arial,sans-serif }
-header { padding:10px; background:#090; display:flex; flex-direction:column; gap:8px }
-h1 { margin:0; text-align:center }
-#search { padding:10px; font-size:16px; border-radius:6px; border:none }
-#grid { padding:8px; display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px }
-.cam { background:#0c0; border-radius:8px; overflow:hidden; cursor:pointer }
-.cam img { width:100%; display:block }
-.cam div { padding:6px; font-size:14px; text-align:center }
-#empty { text-align:center; opacity:.6; margin-top:20px; display:none }
-#fullscreen { position:fixed; inset:0; background:#0a0; display:none; flex-direction:column; z-index:9999 }
-#fullscreen header { display:flex; justify-content:space-between; align-items:center; background:#070; padding:8px }
-#fullscreen img { width:100%; height:100%; object-fit:contain; flex:1 }
-button { background:#060; color:#000; border:none; padding:8px 12px; border-radius:6px; font-size:16px }
+body { margin:0; background:#0f0; font-family:Arial,sans-serif; color:#000; }
+header { padding:10px; background:#090; display:flex; flex-direction:column; gap:8px; }
+h1 { margin:0; text-align:center; }
+#search { padding:10px; font-size:16px; border-radius:6px; border:none; }
+#grid { padding:8px; display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
+.cam { background:#0c0; border-radius:8px; overflow:hidden; cursor:pointer; }
+.cam img { width:100%; display:block; }
+.cam div { padding:6px; font-size:14px; text-align:center; }
+#empty { text-align:center; opacity:.6; margin-top:20px; display:none; }
+#fullscreen { position:fixed; inset:0; background:#0a0; display:none; flex-direction:column; z-index:9999; }
+#fullscreen header { display:flex; justify-content:space-between; align-items:center; background:#070; padding:8px; }
+#fullscreen img { width:100%; height:100%; object-fit:contain; flex:1; }
+button { background:#060; color:#000; border:none; padding:8px 12px; border-radius:6px; font-size:16px; }
 @media (min-width:768px) {
-  header { flex-direction:row; align-items:center }
-  h1 { flex:1; text-align:left }
-  #search { flex:2 }
+  header { flex-direction:row; align-items:center; }
+  h1 { flex:1; text-align:left; }
+  #search { flex:2; }
 }
 </style>
 </head>
@@ -44,20 +44,7 @@ button { background:#060; color:#000; border:none; padding:8px 12px; border-radi
 </div>
 
 <script>
-// =================== Embed Shell Cove + Princes Hwy cameras ===================
-const cameras = [
-  // Shell Cove / nearby cameras
-  { properties: { location: "Shellharbour Road (Warilla, North)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/shellharbour_rd_warilla_north.jpeg" } },
-  { properties: { location: "Five Islands Road (Shellharbour)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/five_islands_rd_shellharbour.jpeg" } },
-  { properties: { location: "Princes Hwy (Albion Park, North)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/princes_hwy_albion_park_north.jpeg" } },
-  // Princes Highway cameras
-  { properties: { location: "Princes Hwy (North Wollongong, North)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/princes_hwy_nwollongong_north.jpeg" } },
-  { properties: { location: "Princes Hwy (Bulli)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/princes_hwy_bulli.jpeg" } },
-  { properties: { location: "Princes Hwy (Heathcote)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/princes_hwy_heathcote.jpeg" } },
-  { properties: { location: "Princes Hwy (Kogarah)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/princes_hwy_kogarah.jpeg" } },
-  { properties: { location: "Princes Hwy (St Peters)", latest_jpg: "https://webcams.transport.nsw.gov.au/livetraffic-webcams/cameras/princes_hwy_st_peters.jpeg" } }
-];
-// ==============================================================================
+const BACKEND_URL = "https://ligma-cams-backend.vercel.app"; // replace with your actual Vercel backend
 
 const grid = document.getElementById("grid");
 const empty = document.getElementById("empty");
@@ -66,7 +53,36 @@ const fs = document.getElementById("fullscreen");
 const fsImg = document.getElementById("fs-img");
 const fsTitle = document.getElementById("fs-title");
 
+let cameras = [];
 let fsCam = null;
+
+// Load NSW + Victoria cameras
+async function loadCameras() {
+  try {
+    // NSW cameras
+    const nswRes = await fetch(BACKEND_URL + "/nsw-cameras.json");
+    const nswData = await nswRes.json();
+    const nswCams = nswData.features.filter(c => {
+      const loc = c.properties.location.toLowerCase();
+      return loc.includes("shellharbour") || loc.includes("warilla") || loc.includes("princes hwy");
+    });
+
+    // Victoria / Melbourne cameras
+    const vicRes = await fetch(BACKEND_URL + "/vic-cameras.json");
+    const vicData = await vicRes.json();
+    const vicCams = vicData.features.map(c => ({
+      properties: {
+        location: c.properties.name,
+        latest_jpg: c.properties.url
+      }
+    }));
+
+    cameras = [...nswCams, ...vicCams];
+    render();
+  } catch (e) {
+    console.error("Failed to load cameras:", e);
+  }
+}
 
 // Render camera grid
 function render() {
@@ -80,7 +96,7 @@ function render() {
   empty.style.display = filtered.length ? "none" : "block";
 
   filtered.forEach(cam => {
-    const imgUrl = cam.properties.latest_jpg + "?_=" + Date.now();
+    const imgUrl = BACKEND_URL + "/image?url=" + encodeURIComponent(cam.properties.latest_jpg) + "&_=" + Date.now();
     const card = document.createElement("div");
     card.className = "cam";
     card.innerHTML = `<img src="${imgUrl}"><div>${cam.properties.location}</div>`;
@@ -103,20 +119,20 @@ function closeFullscreen() {
 }
 
 function updateFullscreenImage() {
-  if (fsCam) fsImg.src = fsCam.properties.latest_jpg + "?_=" + Date.now();
+  if (fsCam) fsImg.src = BACKEND_URL + "/image?url=" + encodeURIComponent(fsCam.properties.latest_jpg) + "&_=" + Date.now();
 }
 
 // Search input
 search.addEventListener("input", render);
 
-// Refresh images every 15 seconds
+// Refresh every 15 seconds
 setInterval(() => {
   render();
-  if(fsCam) updateFullscreenImage();
+  if (fsCam) updateFullscreenImage();
 }, 15000);
 
-// Initial render
-render();
+// Initial load
+loadCameras();
 </script>
 
 </body>
