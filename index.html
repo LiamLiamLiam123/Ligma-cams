@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ligma-cams</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+/* Green background for everything */
+body { margin:0; background:#0f0; color:#000; font-family:Arial,sans-serif }
+
+header { padding:10px; background:#090; display:flex; flex-direction:column; gap:8px }
+h1 { margin:0; text-align:center }
+#search { padding:10px; font-size:16px; border-radius:6px; border:none }
+
+#grid { padding:8px; display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px }
+.cam { background:#0c0; border-radius:8px; overflow:hidden; cursor:pointer }
+.cam img { width:100%; display:block }
+.cam div { padding:6px; font-size:14px; text-align:center }
+#empty { text-align:center; opacity:.6; margin-top:20px; display:none }
+
+/* Fullscreen viewer */
+#fullscreen { position:fixed; inset:0; background:#0a0; display:none; flex-direction:column; z-index:9999 }
+#fullscreen header { display:flex; justify-content:space-between; align-items:center; background:#070; padding:8px }
+#fullscreen img { width:100%; height:100%; object-fit:contain; flex:1 }
+
+button { background:#060; color:#000; border:none; padding:8px 12px; border-radius:6px; font-size:16px }
+
+/* Desktop layout */
+@media (min-width:768px) {
+  header { flex-direction:row; align-items:center }
+  h1 { flex:1; text-align:left }
+  #search { flex:2 }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🚦 ligma-cams</h1>
+  <input id="search" placeholder="Search by region or road name">
+</header>
+
+<div id="grid"></div>
+<div id="empty">No cameras found</div>
+
+<!-- Fullscreen Camera -->
+<div id="fullscreen">
+  <header>
+    <div id="fs-title"></div>
+    <button onclick="closeFullscreen()">✕</button>
+  </header>
+  <img id="fs-img">
+</div>
+
+<script>
+const grid = document.getElementById("grid");
+const empty = document.getElementById("empty");
+const search = document.getElementById("search");
+const fs = document.getElementById("fullscreen");
+const fsImg = document.getElementById("fs-img");
+const fsTitle = document.getElementById("fs-title");
+
+let cameras = [];
+let fsCam = null;
+
+// Use CORS-safe proxy for NSW cameras
+const DATA_URL = "https://cors.isomorphic-git.org/http://data.livetraffic.com/cameras/traffic-cam.json";
+
+async function loadCameras() {
+  try {
+    const res = await fetch(DATA_URL);
+    const data = await res.json();
+    cameras = data.features || [];
+    render();
+  } catch (err) { console.error("Camera load failed", err); }
+}
+
+function render() {
+  const q = search.value.trim().toLowerCase();
+  grid.innerHTML = "";
+
+  const filtered = cameras.filter(c =>
+    c.properties.location.toLowerCase().includes(q)
+  );
+
+  empty.style.display = filtered.length ? "none" : "block";
+
+  filtered.forEach(cam => {
+    const img = cam.properties.latest_jpg + "?_=" + Date.now();
+    const card = document.createElement("div");
+    card.className = "cam";
+    card.innerHTML = `<img src="${img}"><div>${cam.properties.location}</div>`;
+    card.onclick = () => openFullscreen(cam);
+    grid.appendChild(card);
+  });
+}
+
+function openFullscreen(cam) {
+  fsCam = cam;
+  fs.style.display = "flex";
+  fsTitle.textContent = cam.properties.location;
+  updateFullscreenImage();
+}
+
+function closeFullscreen() {
+  fs.style.display = "none";
+  fsCam = null;
+}
+
+function updateFullscreenImage() {
+  if (fsCam) fsImg.src = fsCam.properties.latest_jpg + "?_=" + Date.now();
+}
+
+search.addEventListener("input", render);
+
+// Refresh camera list every 60 seconds
+setInterval(loadCameras, 60*1000);
+
+// Refresh fullscreen every 15 seconds
+setInterval(() => { if(fsCam) updateFullscreenImage(); }, 15*1000);
+
+// Initial load
+loadCameras();
+</script>
+
+</body>
+</html>
