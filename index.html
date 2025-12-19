@@ -44,7 +44,6 @@ button { background:#060; color:#000; border:none; padding:8px 12px; border-radi
 </div>
 
 <script>
-// Replace this URL with a **public copy of LiveTraffic JSON** you host on GitHub
 const CAMS_JSON = "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/main/cams.json";
 
 const grid = document.getElementById("grid");
@@ -57,14 +56,14 @@ const fsTitle = document.getElementById("fs-title");
 let cameras = [];
 let fsCam = null;
 
-// Load cameras from hosted JSON
+// Load cameras from GitHub JSON
 async function loadCameras() {
   try {
     const res = await fetch(CAMS_JSON);
-    const data = await res.json();
-    cameras = data.features.map(f => ({
-      location: f.properties.location,
-      url: f.properties.latest_jpg
+    const data = await res.json(); // expects array of {location,url}
+    cameras = data.map(f => ({
+      location: f.location,
+      url: f.url
     }));
     render();
   } catch (e) {
