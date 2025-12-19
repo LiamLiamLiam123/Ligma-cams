@@ -44,7 +44,7 @@ button { background:#060; color:#000; border:none; padding:8px 12px; border-radi
 </div>
 
 <script>
-const DATA_URL = "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/refs/heads/main/cams.json";
+const DATA_URL = "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/main/cams.json";
 
 const grid = document.getElementById("grid");
 const empty = document.getElementById("empty");
@@ -56,19 +56,20 @@ const fsTitle = document.getElementById("fs-title");
 let cameras = [];
 let fsCam = null;
 
-// Fetch JSON from GitHub
+// Fetch cameras from GitHub
 async function loadCameras() {
   try {
     const res = await fetch(DATA_URL);
     const data = await res.json();
-    cameras = data.features || []; // assuming your JSON uses GeoJSON structure
+    cameras = data.features || [];
     render();
   } catch(err) {
     console.error("Failed to load cameras", err);
+    empty.style.display = "block";
   }
 }
 
-// Render grid
+// Render camera grid
 function render() {
   const q = search.value.trim().toLowerCase();
   grid.innerHTML = "";
@@ -89,7 +90,7 @@ function render() {
   });
 }
 
-// Fullscreen
+// Fullscreen camera
 function openFullscreen(cam) {
   fsCam = cam;
   fs.style.display = "flex";
