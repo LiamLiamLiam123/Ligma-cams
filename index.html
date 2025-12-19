@@ -60,10 +60,11 @@ let fsCam = null;
 async function loadCameras() {
   try {
     const res = await fetch(CAMS_JSON);
-    const data = await res.json(); // expects array of {location,url}
-    cameras = data.map(f => ({
-      location: f.location,
-      url: f.url
+    const data = await res.json();
+    // Map from features -> properties.href / title
+    cameras = data.features.map(f => ({
+      location: f.properties.title + " - " + f.properties.view,
+      url: f.properties.href
     }));
     render();
   } catch (e) {
