@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>ligma-cams</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
 body {
   margin: 0;
@@ -12,7 +11,6 @@ body {
   font-family: Arial, sans-serif;
   color: #000;
 }
-
 header {
   padding: 10px;
   background: #090;
@@ -20,51 +18,45 @@ header {
   flex-direction: column;
   gap: 8px;
 }
-
 h1 {
   margin: 0;
   text-align: center;
 }
-
 #search {
   padding: 10px;
   font-size: 16px;
   border-radius: 6px;
   border: none;
 }
-
 #grid {
   padding: 8px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 8px;
 }
-
 .cam {
   background: #0c0;
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
 }
-
 .cam img {
   width: 100%;
   display: block;
+  min-height: 90px;
+  background: #0a0;
 }
-
 .cam div {
   padding: 6px;
   font-size: 14px;
   text-align: center;
 }
-
 #empty {
   text-align: center;
   opacity: 0.6;
   margin-top: 20px;
   display: none;
 }
-
 /* FULLSCREEN */
 #fullscreen {
   position: fixed;
@@ -76,13 +68,11 @@ h1 {
   display: none;
   z-index: 9999;
 }
-
 #fullscreen img {
   width: 100vw;
   height: 100vh;
-  object-fit: contain; /* change to cover if you want crop-fill */
+  object-fit: contain;
 }
-
 #closeBtn {
   position: absolute;
   top: 12px;
@@ -96,7 +86,6 @@ h1 {
   font-size: 18px;
   cursor: pointer;
 }
-
 @media (min-width: 768px) {
   header {
     flex-direction: row;
@@ -112,79 +101,111 @@ h1 {
 }
 </style>
 </head>
-
 <body>
-
 <header>
   <h1>🚦 ligma-cams</h1>
   <input id="search" placeholder="Search by location">
 </header>
-
 <div id="grid"></div>
 <div id="empty">Loading cameras…</div>
-
 <div id="fullscreen">
   <button id="closeBtn" onclick="closeFullscreen()">✕</button>
-  <img id="fs-img">
+  <img id="fs-img" alt="Camera feed">
 </div>
-
 <script>
-/* FREE CORS PROXY */
-const CAMS_JSON =
-  "https://api.allorigins.win/raw?url=" +
-  encodeURIComponent(
-    "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/main/cams.json"
-  );
+/* Try fetching the JSON directly first (GitHub raw supports CORS),
+   then fall back to a proxy if it fails. */
+const JSON_URL = "https://raw.githubusercontent.com/LiamLiamLiam123/cams-json/main/cams.json";
+const PROXY_URL = "https://corsproxy.io/?" + encodeURIComponent(JSON_URL);
 
 const grid = document.getElementById("grid");
 const empty = document.getElementById("empty");
 const search = document.getElementById("search");
 const fs = document.getElementById("fullscreen");
 const fsImg = document.getElementById("fs-img");
-
 let cameras = [];
 let fsCam = null;
 
+/* Build a cache-busted image URL via a proxy to avoid mixed-content / CORS issues on images */
+function imgUrl(url) {
+  return "https://corsproxy.io/?" + encodeURIComponent(url) + "&_=" + Date.now();
+}
+
 /* LOAD CAMERAS */
 async function loadCameras() {
+  empty.style.display = "block";
+  empty.textContent = "Loading cameras…";
+
+  let data = null;
+
+  // Try direct fetch first
   try {
-    empty.style.display = "block";
-    empty.textContent = "Loading cameras…";
-
-    const res = await fetch(CAMS_JSON);
-    const text = await res.text();
-    const data = JSON.parse(text);
-
-    cameras = data.features.map(f => ({
-      location: f.properties.title + " - " + f.properties.view,
-      url: f.properties.href
-    }));
-
-    render();
+    const res = await fetch(JSON_URL);
+    if (res.ok) {
+      data = await res.json();
+    }
   } catch (e) {
-    console.error(e);
-    empty.textContent = "Failed to load cameras";
+    // fall through to proxy
   }
+
+  // Fall back to corsproxy.io
+  if (!data) {
+    try {
+      const res = await fetch(PROXY_URL);
+      if (res.ok) {
+        data = await res.json();
+      }
+    } catch (e) {
+      empty.textContent = "Failed to load cameras. Check your connection and try refreshing.";
+      return;
+    }
+  }
+
+  if (!data || !data.features) {
+    empty.textContent = "Unexpected data format.";
+    return;
+  }
+
+  cameras = data.features.map(f => ({
+    location: f.properties.title + " — " + f.properties.view,
+    url: f.properties.href
+  }));
+
+  render();
 }
 
 /* RENDER GRID */
 function render() {
   const q = search.value.toLowerCase();
   grid.innerHTML = "";
-
   const filtered = cameras.filter(c =>
     c.location.toLowerCase().includes(q)
   );
-
   empty.style.display = filtered.length ? "none" : "block";
+  if (!filtered.length && !q) {
+    empty.textContent = "No cameras found.";
+  }
 
   filtered.forEach(cam => {
     const card = document.createElement("div");
     card.className = "cam";
-    card.innerHTML = `
-      <img src="${cam.url}?_=${Date.now()}">
-      <div>${cam.location}</div>
-    `;
+
+    const img = document.createElement("img");
+    img.alt = cam.location;
+    // Try loading directly first; on error fall back to proxy
+    img.src = cam.url + "?_=" + Date.now();
+    img.onerror = function() {
+      if (!this.dataset.proxied) {
+        this.dataset.proxied = "1";
+        this.src = imgUrl(cam.url);
+      }
+    };
+
+    const label = document.createElement("div");
+    label.textContent = cam.location;
+
+    card.appendChild(img);
+    card.appendChild(label);
     card.onclick = () => openFullscreen(cam);
     grid.appendChild(card);
   });
@@ -196,17 +217,27 @@ function openFullscreen(cam) {
   fs.style.display = "block";
   updateFullscreenImage();
 }
-
 function closeFullscreen() {
   fs.style.display = "none";
   fsCam = null;
 }
-
 function updateFullscreenImage() {
-  if (fsCam) {
-    fsImg.src = fsCam.url + "?_=" + Date.now();
-  }
+  if (!fsCam) return;
+  const direct = fsCam.url + "?_=" + Date.now();
+  fsImg.src = direct;
+  fsImg.onerror = function() {
+    if (!this.dataset.proxied) {
+      this.dataset.proxied = "1";
+      this.src = imgUrl(fsCam.url);
+    }
+  };
+  fsImg.dataset.proxied = "";
 }
+
+/* Close fullscreen on Escape */
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeFullscreen();
+});
 
 /* SEARCH */
 search.addEventListener("input", render);
@@ -220,6 +251,5 @@ setInterval(() => {
 /* INIT */
 loadCameras();
 </script>
-
 </body>
 </html>
